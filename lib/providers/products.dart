@@ -42,8 +42,9 @@ class Products with ChangeNotifier {
     // ),
   ];
   final String authToken;
+  final String userId;
 
-  Products(this.authToken, this._items);
+  Products(this.authToken, this.userId, this._items);
 
   List<Product> get items {
     // if (_showFavoritesOnly) {
@@ -71,21 +72,28 @@ class Products with ChangeNotifier {
   // }
 
   Future<void> fetchAndSetProducts() async {
-    final url = 'https://dhimas-shop-app.firebaseio.com/products.json?auth=$authToken';
+    var url =
+        'https://dhimas-shop-app.firebaseio.com/products.json?auth=$authToken';
     try {
       final response = await http.get(url);
       final extractedData = json.decode(response.body) as Map<String, dynamic>;
+
+      if (extractedData == null) return;
+
+      url =
+          'https://dhimas-shop-app.firebaseio.com/userFavorites/$userId.json?auth=$authToken';
+      final favoriteResponse = await http.get(url);
+      final favoriteData = json.decode(favoriteResponse.body);
+
       final List<Product> loadedProducts = [];
-
-      // if (extractedData == null) return;
-
       extractedData.forEach((prodId, prodData) {
         loadedProducts.add(Product(
           id: prodId,
           title: prodData['title'],
           description: prodData['description'],
           price: prodData['price'],
-          isFavorite: prodData['isFavorite'],
+          isFavorite:
+              favoriteData == null ? false : favoriteData[prodId] ?? false,
           imageUrl: prodData['imageUrl'],
         ));
         _items = loadedProducts;
@@ -98,7 +106,8 @@ class Products with ChangeNotifier {
   }
 
   Future<void> addProduct(Product product) async {
-    final url = 'https://dhimas-shop-app.firebaseio.com/products.json?auth=$authToken';
+    final url =
+        'https://dhimas-shop-app.firebaseio.com/products.json?auth=$authToken';
     try {
       final response = await http.post(
         url,
@@ -107,7 +116,6 @@ class Products with ChangeNotifier {
           'price': product.price,
           'description': product.description,
           'imageUrl': product.imageUrl,
-          'isFavorite': product.isFavorite,
         }),
       );
       final newProduct = Product(
@@ -129,7 +137,8 @@ class Products with ChangeNotifier {
   Future<void> updateProduct(String id, Product newProduct) async {
     final prodIndex = _items.indexWhere((prod) => prod.id == id);
     if (prodIndex >= 0) {
-      final url = 'https://dhimas-shop-app.firebaseio.com/products/$id.json?auth=$authToken';
+      final url =
+          'https://dhimas-shop-app.firebaseio.com/products/$id.json?auth=$authToken';
       await http.patch(url,
           body: json.encode({
             'title': newProduct.title,
@@ -146,7 +155,8 @@ class Products with ChangeNotifier {
 
   Future<void> deleteProduct(String id) async {
     // Optimistic Update Pattern
-    final url = 'https://dhimas-shop-app.firebaseio.com/products/$id.json?auth=$authToken';
+    final url =
+        'https://dhimas-shop-app.firebaseio.com/products/$id.json?auth=$authToken';
     final existingProductIndex = _items.indexWhere((prod) => prod.id == id);
     var existingProduct = _items[existingProductIndex];
     // delete on local memmory
